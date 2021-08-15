@@ -30,6 +30,7 @@ def load_image(img_path, target_shape=None):
     if target_shape is not None:  # resize section
         if isinstance(target_shape, int) and target_shape != -1:  # scalar -> implicitly setting the width
             current_height, current_width = img.shape[:2]
+            print(current_height, current_width)
             new_width = target_shape
             new_height = int(current_height * (new_width / current_width))
             img = cv.resize(img, (new_width, new_height), interpolation=cv.INTER_CUBIC)
@@ -138,7 +139,7 @@ def fetch_and_prepare_model(model_type, pretrained_weights, device):
 
 
 # Didn't want to expose these to the outer API - too much clutter, feel free to tweak params here
-def transform_frame(config, frame):
+def transform_frame(config, frame, frame_id):
     h, w = frame.shape[:2]
     ref_fps = 30  # referent fps, the transformation settings are calibrated for this one
 
@@ -149,10 +150,11 @@ def transform_frame(config, frame):
 
     elif config['frame_transform'].lower() == TRANSFORMS.ZOOM_ROTATE.name.lower():
         # Arbitrary heuristic keep the degree at 3 degrees/second and scale 1.04/second
-        deg = 1.5 * (ref_fps / config['fps'])  # Adjust rotation speed (in [deg/frame])
-        scale = 1.04 * (ref_fps / config['fps'])  # Use this to (un)zoom while rotating around image center
+        deg = 1.5 * frame_id  # Adjust rotation speed (in [deg/frame])
+        scale = 1 + abs(math.sin(math.pi*deg/180))*1.8 #1.1 ** ((1000+ frame_id) /1440)  # Use this to (un)zoom while rotating around image center
         rotation_matrix = cv.getRotationMatrix2D((w / 2, h / 2), deg, scale)
         frame = cv.warpAffine(frame, rotation_matrix, (w, h))
+        
 
     elif config['frame_transform'].lower() == TRANSFORMS.TRANSLATE.name.lower():
         tx, ty = [2 * (ref_fps / config['fps']), 2 * (ref_fps / config['fps'])]
