@@ -160,10 +160,13 @@ def deep_dream_video(config):
         # Step 2: potentially blend it with the last frame
         if config['blend'] is not None and last_img is not None:
             # blend: 1.0 - use the current frame, 0.0 - use the last frame, everything in between will blend the two
+            frame = utils.transform_frame(config, frame, frame_id)
             frame = utils.linear_blend(last_img, frame, config['blend'])
 
         # Step 3: Send the blended frame to some good old DeepDreaming
+        
         dreamed_frame = deep_dream_static_image(config, frame)
+        #dreamed_frame = utils.transform_frame(config, dreamed_frame, frame_id)
 
         # Step 4: save the frame and keep the reference
         last_img = dreamed_frame
