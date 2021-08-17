@@ -42,7 +42,7 @@ class ResNet50(torch.nn.Module):
         else:
             raise Exception(f'Pretrained weights {pretrained_weights} not yet supported for {self.__class__.__name__} model.')
 
-        self.layer_names = ['layer1', 'layer2', 'layer3', 'layer4']
+        self.layer_names = ['layer1', 'layer2', 'layer3', 'layer4', 'layer5']
 
         self.conv1 = resnet50.conv1
         self.bn1 = resnet50.bn1
@@ -148,6 +148,6 @@ class ResNet50(torch.nn.Module):
 
         # Feel free to experiment with different layers.
         net_outputs = namedtuple("ResNet50Outputs", self.layer_names)
-        out = net_outputs(layer10, layer23, layer35, layer40)
+        out = net_outputs(layer10, layer23, layer35, layer40, layer41)
         # layer35 is my favourite
         return out
