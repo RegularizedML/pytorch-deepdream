@@ -132,7 +132,7 @@ def deep_dream_video_ouroboros(config):
 
         # Step 2: transform frame e.g. central zoom, spiral, etc.
         # Note: this part makes amplifies the psychodelic-like appearance
-        frame = utils.transform_frame(config, frame)
+        frame = utils.transform_frame(config, frame, frame_id)
 
     video_utils.create_video_from_intermediate_results(config)
     print(f'time elapsed = {time.time()-ts} seconds.')
