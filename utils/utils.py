@@ -139,7 +139,7 @@ def fetch_and_prepare_model(model_type, pretrained_weights, device):
 
 
 # Didn't want to expose these to the outer API - too much clutter, feel free to tweak params here
-def transform_frame(config, frame, frame_id):
+def transform_frame(config, frame, frame_id=1):
     h, w = frame.shape[:2]
     ref_fps = 30  # referent fps, the transformation settings are calibrated for this one
 
