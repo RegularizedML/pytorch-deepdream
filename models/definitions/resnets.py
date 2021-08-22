@@ -20,17 +20,39 @@ class ResNet50(torch.nn.Module):
         elif pretrained_weights == SupportedPretrainedWeights.PLACES_365.name:
             resnet50 = models.resnet50(pretrained=False, progress=show_progress).eval()
 
-            binary_name = 'resnet50_places365.pth.tar'
+            model1_name = 'resnet50_places365.pth.tar'
+            binary_name = 'resnet50_state_dict_flowers.pth.tar'
             resnet50_places365_binary_path = os.path.join(BINARIES_PATH, binary_name)
-
+            model1_path = os.path.join(BINARIES_PATH, model1_name)
             if os.path.exists(resnet50_places365_binary_path):
-                state_dict = torch.load(resnet50_places365_binary_path)['state_dict']
+                #print(state_dict)
+                model1 = torch.load(model1_path)['state_dict']
+                pretrained_dict = torch.load(resnet50_places365_binary_path)#['state_dict']
+                state_dict = torch.load(resnet50_places365_binary_path)#['state_dict']
+                model_dict = model1
+
+                # 1. filter out unnecessary keys
+                pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
+                # 2. overwrite entries in the existing state dict
+                model_dict.update(pretrained_dict) 
+                # 3. load the new state dict
+                #state_dict = torch.nn.Module.load_state_dict(pretrained_dict)
+                #state_dict = model
             else:
                 binary_url = r'http://places2.csail.mit.edu/models_places365/resnet50_places365.pth.tar'
-                print(f'Downloading {binary_name} from {binary_url} it may take some time.')
                 download_url_to_file(binary_url, resnet50_places365_binary_path)
-                print('Done downloading.')
-                state_dict = torch.load(resnet50_places365_binary_path)['state_dict']
+                #print(state_dict)
+                model1 = torch.load(model1_path)['state_dict']
+                pretrained_dict = torch.load(resnet50_places365_binary_path)#['state_dict']
+                state_dict = torch.load(resnet50_places365_binary_path)#['state_dict']
+                model_dict = model1
+                # 1. filter out unnecessary keys
+                pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
+                # 2. overwrite entries in the existing state dict
+                model_dict.update(pretrained_dict) 
+                # 3. load the new state dict
+                #state_dict = torch.nn.Module.load_state_dict(pretrained_dict)
+                #state_dict = model
 
             new_state_dict = {}  # modify key names and make it compatible with current PyTorch model naming scheme
             for old_key in state_dict.keys():
@@ -38,7 +60,7 @@ class ResNet50(torch.nn.Module):
                 new_state_dict[new_key] = state_dict[old_key]
 
             resnet50.fc = torch.nn.Linear(resnet50.fc.in_features, 365)
-            resnet50.load_state_dict(new_state_dict, strict=True)
+            resnet50.load_state_dict(pretrained_dict, strict=False)
         else:
             raise Exception(f'Pretrained weights {pretrained_weights} not yet supported for {self.__class__.__name__} model.')
 
