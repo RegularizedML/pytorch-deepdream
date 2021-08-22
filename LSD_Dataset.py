@@ -12,14 +12,14 @@ import numpy as np
 
 class Dataset(Sequence):
       
-  def __init__(self,path,to_fit=True,batch_size=16,AE=True, is_val=False,input_shape=252, Eff=True):
+  def __init__(self,path,to_fit=True,AE=True, is_val=False,input_shape=252, Eff=True):
     
     self.is_val=is_val
     self.idxList=[]    
     self.input_shape=input_shape
     self.images,self.Class= self.ImagesLoadFromPath(path,self.input_shape)
     self.to_fit=to_fit
-    self.batch_size=batch_size
+    self.batch_size=1
     self.AE=AE
     self.numImages= len(self.images)
     if self.is_val:
@@ -36,7 +36,9 @@ class Dataset(Sequence):
     tempList=self.idxList[start:ending]
     image=[self.images[i] for i in tempList]
     Class=[self.Class[i] for i in tempList]
-
+    image= image[0]
+    image = image.reshape((3,self.input_shape,self.input_shape))
+    Class = Class[0]
 
     if self.is_val:
       #image_seg=  self.Segmentation(image)
@@ -55,23 +57,22 @@ class Dataset(Sequence):
         return image, {'Dec':image,}
       else:
         #print(np.asarray(Class).shape)
-        return image, {'FC':np.asarray(Class)}
+        return image, np.asarray(Class)
     else:
       return image
     
-  def DataAugemntation(self, images): #input should be a list of numpy arrays (list of images)
-    Auge= iaa.RandAugment(n=(1,1),m=(10))
-    Auge= iaa.RandAugment(n=(1,1),m=(10))
-    out=Auge(images=images)
-    return np.array(out)
+  #def DataAugemntation(self, images): #input should be a list of numpy arrays (list of images)
+  #  Auge= iaa.RandAugment(n=(1,1),m=(10))
+  #  Auge= iaa.RandAugment(n=(1,1),m=(10))
+  #  out=Auge(images=images)
+  #  return np.array(out)
 
 
-  def on_epoch_end(self):
+  #def on_epoch_end(self):
     
-    np.random.seed(20)
-    np.random.shuffle(self.idxList)
-      #Shuffle list magic goes here?
-    print("shuffle done!")
+   # np.random.seed(20)
+    ## #Shuffle list magic goes here?
+    #print("shuffle done!")
 
   def ImagesLoadFromPath(self,path,desired_size=500):
     ImagesArray=[]
