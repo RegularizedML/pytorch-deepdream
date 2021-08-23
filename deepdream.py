@@ -215,6 +215,7 @@ if __name__ == "__main__":
     parser.add_argument("--spatial_shift_size", type=int, help='Number of pixels to randomly shift image before grad ascent', default=32)
     parser.add_argument("--smoothing_coefficient", type=float, help='Directly controls standard deviation for gradient smoothing', default=0.5)
     parser.add_argument("--use_noise", action='store_true', help="Use noise as a starting point instead of input image (default False)")
+    parser.add_argument("--pretrained", action='store_true', help="Use when pretrained weights are available")
     args = parser.parse_args()
 
     # Wrapping configuration into a dictionary
