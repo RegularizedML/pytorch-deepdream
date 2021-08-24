@@ -8,11 +8,12 @@ from PIL import ImageOps
 from itertools import cycle, islice
 import cv2 as cv
 import numpy as np
-
+import torchvision.transforms as transforms
+import torch
 
 class Dataset(Sequence):
       
-  def __init__(self,path,to_fit=True,AE=True, is_val=False,input_shape=252, Eff=True):
+  def __init__(self,path,to_fit=True,AE=True, is_val=False,input_shape=252, Eff=False):
     
     self.is_val=is_val
     self.idxList=[]    
@@ -28,6 +29,11 @@ class Dataset(Sequence):
       self.idxList=[i for i in range(0,self.numImages-300)]
     self.Eff = Eff
     self.maxAray=[]
+    self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    self.transform = transforms.Compose(
+    [transforms.ToTensor(),transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])])
+
   def __getitem__(self, index):
 
 
@@ -37,7 +43,7 @@ class Dataset(Sequence):
     image=[self.images[i] for i in tempList]
     Class=[self.Class[i] for i in tempList]
     image= image[0]
-    image = image.reshape((3,self.input_shape,self.input_shape))
+    #image = image.reshape((3,self.input_shape,self.input_shape))
     Class = Class[0]
 
     if self.is_val:
@@ -48,8 +54,8 @@ class Dataset(Sequence):
     else:
       #image_seg= self.Segmentation(image)
       #imageDenom=  self.DataAugemntation(image_seg)
-      imageDenom= np.array(image)
-      image=self.Norming(imageDenom)
+      #imageDenom= np.array(image)
+      image=self.Norming(image)
       
       
     if self.to_fit:
@@ -137,7 +143,9 @@ class Dataset(Sequence):
   def Norming(self, img): 
     #normalized = img.astype('float64')/255.0
     if self.Eff:
-    	normalized = img.astype('float64')
+      
+    	#normalized = img.astype('float64')
+      normalized = self.transform(img.astype('float64')).to(self.device)
     else:
       normalized = img.astype('float64')/255.0
     #for i in range(len(img)):
