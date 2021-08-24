@@ -34,6 +34,7 @@ class SupportedModels(enum.Enum):
 class SupportedPretrainedWeights(enum.Enum):
     IMAGENET = 0
     PLACES_365 = 1
+    custom = 2
 
 
 SUPPORTED_VIDEO_FORMATS = ['.mp4']
