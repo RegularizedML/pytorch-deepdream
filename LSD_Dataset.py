@@ -21,11 +21,11 @@ class Dataset(Sequence):
     self.to_fit=to_fit
     self.batch_size=1
     self.AE=AE
-    self.numImages= len(self.images)
+    self.numImages= self.images.shape[0]
     if self.is_val:
-      self.idxList=[i for i in range(0,self.numImages-50)]
+      self.idxList=[i for i in range(self.numImages-300,self.numImages)]
     else:
-      self.idxList=[i for i in range(self.numImages-50,self.numImages)]
+      self.idxList=[i for i in range(0,self.numImages-300)]
     self.Eff = Eff
     self.maxAray=[]
   def __getitem__(self, index):
@@ -77,12 +77,15 @@ class Dataset(Sequence):
   def ImagesLoadFromPath(self,path,desired_size=500):
     ImagesArray=[]
     Classes= []
-    NumberOfClasses= len(os.listdir(path))
-    dummyVector=[0 for i in range(NumberOfClasses)]
     folderss=os.listdir(path)
+    if '.ipynb_checkpoints' in folderss: folderss.remove(".ipynb_checkpoints")
+    if 'LICENSE.txt' in folderss: folderss.remove("LICENSE.txt")
     folderss.sort()
+    NumberOfClasses= len(folderss)
+    dummyVector=[0 for i in range(NumberOfClasses)]
+    
     if not self.is_val:
-      min_img= 984
+      min_img= 0
     else: 
       min_img= 0
     counterIdx=0
