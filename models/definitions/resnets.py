@@ -42,7 +42,7 @@ class ResNet50(torch.nn.Module):
             
         elif pretrained_weights == SupportedPretrainedWeights.custom.name:
             
-            binary_name = 'resnet50_state_dict_flowers.pth.tar'
+            binary_name = 'resnet50_state_dict_wiki_0__.pth.tar'
             resnet50_places365_binary_path = os.path.join(BINARIES_PATH, binary_name)
             
             resnet50 = models.resnet50(pretrained=False, progress=show_progress).eval()
@@ -66,8 +66,8 @@ class ResNet50(torch.nn.Module):
                 new_key = old_key[7:]
                 new_state_dict[new_key] = pretrained_dict[old_key]
 
-            #resnet50.fc = torch.nn.Linear(resnet50.fc.in_features, 365)
-            resnet50.load_state_dict(new_state_dict, strict=False)
+            resnet50.fc = torch.nn.Linear(resnet50.fc.in_features, 5)
+            resnet50.load_state_dict(pretrained_dict, strict=True)
         else:
             raise Exception(f'Pretrained weights {pretrained_weights} not yet supported for {self.__class__.__name__} model.')
 
@@ -177,6 +177,6 @@ class ResNet50(torch.nn.Module):
 
         # Feel free to experiment with different layers.
         net_outputs = namedtuple("ResNet50Outputs", self.layer_names)
-        out = net_outputs(layer10, layer23, layer35, layer40, layer41)
+        out = net_outputs(layer10, layer20,layer30, layer40, layer41)
         # layer35 is my favourite
         return out
