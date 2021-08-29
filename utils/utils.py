@@ -144,7 +144,7 @@ def transform_frame(config, frame, frame_id=1):
     ref_fps = 30  # referent fps, the transformation settings are calibrated for this one
 
     if config['frame_transform'].lower() == TRANSFORMS.ZOOM.name.lower():
-        scale = 1.04 * (ref_fps / config['fps'])  # Use this param to (un)zoom
+        scale = 1.03# * (ref_fps / config['fps'])  # Use this param to (un)zoom
         rotation_matrix = cv.getRotationMatrix2D((w / 2, h / 2), 0, scale)
         frame = cv.warpAffine(frame, rotation_matrix, (w, h))
 
