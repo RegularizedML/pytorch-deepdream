@@ -153,7 +153,7 @@ def transform_frame(config, frame, frame_id=1):
         deg = (1.5 * frame_id)/12  # Adjust rotation speed (in [deg/frame])
         deg = 1.003
         scale = 1 + abs(math.sin(math.pi*deg/180))*1.8 #1.1 ** ((1000+ frame_id) /1440)  # Use this to (un)zoom while rotating around image center
-        scale = 0.025
+        scale = 1.025
         rotation_matrix = cv.getRotationMatrix2D((w / 2, h / 2), deg, scale)
         frame = cv.warpAffine(frame, rotation_matrix, (w, h))
         
