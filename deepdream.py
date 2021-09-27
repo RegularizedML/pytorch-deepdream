@@ -20,6 +20,84 @@ import utils.utils as utils
 from utils.constants import *
 import utils.video_utils as video_utils
 
+def guide_feat(config, img):
+    model = utils.fetch_and_prepare_model(config['model_name'], config['pretrained_weights'], DEVICE)
+    try:
+        layer_ids_to_use = [model.layer_names.index(layer_name) for layer_name in config['layers_to_use']]
+    except Exception as e:  # making sure you set the correct layer name for this specific model
+        print(f'Invalid layer names {[layer_name for layer_name in config["layers_to_use"]]}.')
+        print(f'Available layers for model {config["model_name"]} are {model.layer_names}.')
+        return
+
+    if img is None:  # load either the provided image or start from a pure noise image
+        img_path = utils.parse_input_file(config['input'])
+        # load a numpy, [0, 1] range, channel-last, RGB image
+        img = utils.load_image(img_path, target_shape=config['img_width'])
+        if config['use_noise']:
+            shape = img.shape
+            img = np.random.uniform(low=0.0, high=1.0, size=shape).astype(np.float32)
+
+    img = utils.pre_process_numpy_img(img)
+
+    # Note: simply rescaling the whole result (and not only details, see original implementation) gave me better results
+    # Going from smaller to bigger resolution (from pyramid top to bottom)
+    img = cv.resize(img, (224,224))
+    input_tensor = utils.pytorch_input_adapter(img, DEVICE)
+
+
+    out = model(input_tensor)
+    # Step 1: Grab activations/feature maps of interest
+    activations = [out[layer_id_to_use].detach() for layer_id_to_use in layer_ids_to_use]
+
+    return activations
+
+def gradient_ascent_with_guide(config, model, input_tensor, layer_ids_to_use, iteration, guide_fet):
+    # Step 0: Feed forward pass
+    out = model(input_tensor)
+
+    # Step 1: Grab activations/feature maps of interest
+    activations = [out[layer_id_to_use] for layer_id_to_use in layer_ids_to_use]
+
+    # Step 2: Calculate loss over activations
+    losses = []
+    for layer_activation, fet in zip(activations, guide_fet):
+        # Use torch.norm(torch.flatten(layer_activation), p) with p=2 for L2 loss and p=1 for L1 loss.
+        # But I'll use the MSE as it works really good, I didn't notice any serious change when going to L1/L2.
+        # using torch.zeros_like as if we wanted to make activations as small as possible but we'll do gradient ascent
+        # and that will cause it to actually amplify whatever the network "sees" thus yielding the famous DeepDream look
+        fet = torch.reshape(fet,(layer_activation.shape[1],-1))
+        layer_activation = torch.reshape(layer_activation,(layer_activation.shape[1],-1))
+        layer_activation = torch.transpose(layer_activation,0,1)
+        dot = torch.matmul(layer_activation,fet)
+        #dot = torch.bmm()
+        loss_component = dot[:, dot.argmax(1)]
+        loss_component = torch.mean(dot)
+        
+        losses.append(loss_component)
+
+    loss = torch.mean(torch.stack(losses))
+    loss.backward()
+
+    # Step 3: Process image gradients (smoothing + normalization)
+    grad = input_tensor.grad.data
+
+    # Applies 3 Gaussian kernels and thus "blurs" or smoothens the gradients and gives visually more pleasing results
+    # sigma is calculated using an arbitrary heuristic feel free to experiment
+    #sigma = ((iteration + 1) / config['num_gradient_ascent_iterations']) * 2.0 + config['smoothing_coefficient']
+    #smooth_grad = utils.CascadeGaussianSmoothing(kernel_size=9, sigma=sigma)(grad)  # "magic number" 9 just works well
+    smooth_grad = grad
+    # Normalize the gradients (make them have mean = 0 and std = 1)
+    # I didn't notice any big difference normalizing the mean as well - feel free to experiment
+    g_std = torch.std(smooth_grad)
+    g_mean = torch.mean(smooth_grad)
+    smooth_grad = smooth_grad - g_mean
+    smooth_grad = smooth_grad / g_std
+    
+    # Step 4: Update image using the calculated gradients (gradient ascent step)
+    input_tensor.data += config['lr'] * smooth_grad
+
+    # Step 5: Clear gradients and clamp the data (otherwise values would explode to +- "infinity")
+    input_tensor.grad.data.zero_()
 
 # loss.backward(layer) <- original implementation did it like this it's equivalent to MSE(reduction='sum')/2
 def gradient_ascent(config, model, input_tensor, layer_ids_to_use, iteration):
@@ -65,7 +143,8 @@ def gradient_ascent(config, model, input_tensor, layer_ids_to_use, iteration):
     input_tensor.data = torch.max(torch.min(input_tensor, UPPER_IMAGE_BOUND), LOWER_IMAGE_BOUND)
 
 
-def deep_dream_static_image(config, img):
+
+def deep_dream_static_image(config, img, Guid_fet = False):
     model = utils.fetch_and_prepare_model(config['model_name'], config['pretrained_weights'], DEVICE)
     try:
         layer_ids_to_use = [model.layer_names.index(layer_name) for layer_name in config['layers_to_use']]
@@ -95,8 +174,10 @@ def deep_dream_static_image(config, img):
         for iteration in range(config['num_gradient_ascent_iterations']):
             h_shift, w_shift = np.random.randint(-config['spatial_shift_size'], config['spatial_shift_size'] + 1, 2)
             input_tensor = utils.random_circular_spatial_shift(input_tensor, h_shift, w_shift)
-
-            gradient_ascent(config, model, input_tensor, layer_ids_to_use, iteration)
+            if Guid_fet != False:
+              gradient_ascent_with_guide(config, model, input_tensor, layer_ids_to_use, iteration, Guid_fet)
+            else:
+              gradient_ascent(config, model, input_tensor, layer_ids_to_use, iteration)
 
             input_tensor = utils.random_circular_spatial_shift(input_tensor, h_shift, w_shift, should_undo=True)
 
@@ -104,6 +185,7 @@ def deep_dream_static_image(config, img):
 
     return utils.post_process_numpy_img(img)
 
+    input_tensor.data = torch.max(torch.min(input_tensor, UPPER_IMAGE_BOUND), LOWER_IMAGE_BOUND)
 
 def deep_dream_video_ouroboros(config):
     """
@@ -117,6 +199,9 @@ def deep_dream_video_ouroboros(config):
         f'Expected an image, but got {config["input_name"]}. Supported image formats {SUPPORTED_IMAGE_FORMATS}.'
 
     utils.print_ouroboros_video_header(config)  # print some ouroboros-related metadata to the console
+    if config['guide'] != False:
+      
+      Guid_fet = guide_feat(config, utils.load_image(config['guide'], target_shape=config['img_width']))
 
     img_path = utils.parse_input_file(config['input'])
     # load numpy, [0, 1] range, channel-last, RGB image
@@ -126,7 +211,10 @@ def deep_dream_video_ouroboros(config):
     for frame_id in range(config['ouroboros_length']):
         print(f'Ouroboros iteration {frame_id+1}.')
         # Step 1: apply DeepDream and feed the last iteration's output to the input
-        frame = deep_dream_static_image(config, frame)
+        if config['guide']!= False:
+          frame = deep_dream_static_image(config, frame, Guid_fet)
+        else:
+          frame = deep_dream_static_image(config, frame)
         dump_path = utils.save_and_maybe_display_image(config, frame, name_modifier=frame_id)
         print(f'Saved ouroboros frame to: {os.path.relpath(dump_path)}\n')
 
@@ -187,6 +275,7 @@ if __name__ == "__main__":
     # Common params
     parser.add_argument("--input", type=str, help="Input IMAGE or VIDEO name that will be used for dreaming", default='figures.jpg')
     parser.add_argument("--img_width", type=int, help="Resize input image to this width", default=600)
+    parser.add_argument("--guide", type=str, help="Layer whose activations we should maximize while dreaming", default=False)
     parser.add_argument("--layers_to_use", type=str, nargs='+', help="Layer whose activations we should maximize while dreaming", default=['relu4_3'])
     parser.add_argument("--model_name", choices=[m.name for m in SupportedModels],
                         help="Neural network (model) to use for dreaming", default=SupportedModels.VGG16_EXPERIMENTAL.name)
@@ -229,7 +318,7 @@ if __name__ == "__main__":
     if config['create_ouroboros']:
         deep_dream_video_ouroboros(config)
 
-    # Create a blended DeepDream video
+    # Create a blended DeepDream videoa
     elif any([config['input_name'].lower().endswith(video_ext) for video_ext in SUPPORTED_VIDEO_FORMATS]):  # only support mp4 atm
         deep_dream_video(config)
 
